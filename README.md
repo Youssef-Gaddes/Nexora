@@ -99,6 +99,6 @@ symfony server:start
 
 3rd-year integrated project (Projet Intégré) — team of 3.
 
-In practice I owned the majority of the codebase: full Symfony architecture,  Doctrine ORM design, the entire 800+ test suite, the JavaFX desktop client, and code review and integration of my teammates' contributions (entity definitions, business logic, authentication and RBAC, and third-party API integrations).
+In practice I owned the majority of the codebase: full Symfony architecture,  Doctrine ORM design, the entire 800+ test suite, the JavaFX desktop client, and code review and integration of my teammates' contributions (some entity definitions, some business logic, authentication and RBAC, and some third-party API integrations).
 
 📬 [youssefgaddes3@gmail.com](mailto:[youssefgaddes3@gmail.com) 
