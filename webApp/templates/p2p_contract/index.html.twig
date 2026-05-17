@@ -1,0 +1,544 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}P2P Contracts - Nexora{% endblock %}
+
+{% block body %}
+<style>
+    .custom-modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0; 
+        width: 100%; height: 100%; background: rgba(0,0,0,0.7); 
+        backdrop-filter: blur(8px); overflow-y: auto;
+    }
+    .modal-content {
+        background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1);
+        margin: 20px auto; padding: 25px; width: 90%; max-width: 520px;
+        border-radius: 24px; position: relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    .modal-header { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; display: block; }
+    .ctype-btn { padding: 0.6rem !important; }
+    .ctype-btn i { font-size: 1.1rem; margin-bottom: 4px; }
+    .ctype-btn small { font-size: 0.65rem !important; }
+    .input-with-icon input, .input-with-icon select { height: 45px; font-size: 0.9rem; }
+    .btn-block { padding: 12px; font-weight: 700; font-size: 1rem; }
+</style>
+
+<div class="container-fluid" style="padding-bottom: 100px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="page-heading">
+            {{ app.session.get('role') == 'ADMIN' ? 'Manage P2P Contracts' : 'P2P Market' }}
+        </h1>
+        {% if app.session.get('role') == 'ADMIN' %}
+        <button class="btn btn-primary" onclick="document.getElementById('addContractModal').style.display='block'">
+            <i class="fas fa-plus"></i> New Contract
+        </button>
+        {% endif %}
+    </div>
+
+    {% if app.session.get('role') == 'ADMIN' %}
+    <div class="stats-row mb-4">
+        <div class="stat-card">
+            <div class="stat-icon purple"><i class="fas fa-handshake"></i></div>
+            <div class="stat-info">
+                <span class="stat-label">Total Contracts</span>
+                <span class="stat-value">{{ activeCount }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>P2P Contracts</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Creator ID</th>
+                        <th>Asset Name</th>
+                        <th>Quantity & Price</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contract in contracts %}
+                    <tr class="wallet-row">
+                        <td><span class="id-badge">#C{{ contract.id }}</span></td>
+                        <td>
+                            <div class="owner-cell">
+                                <span>User #{{ contract.creator ? contract.creator.id : 'N/A' }}</span>
+                            </div>
+                        </td>
+                        <td><strong>{{ contract.asset.name }} ({{ contract.asset.symbol }})</strong></td>
+                        <td>
+                            {{ contract.quantity }} units @ <span class="price-text text-success">{{ contract.pricePerUnit|number_format(2) }} DT</span>
+                        </td>
+                        <td>
+                            <span class="status-badge {{ contract.contractType|lower == 'buy' ? 'deposit' : 'withdrawal' }}">
+                                {{ contract.contractType|upper }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {{ contract.status == 'OPEN' ? 'bg-primary' : (contract.status == 'COMPLETED' ? 'bg-success' : 'bg-secondary') }}">
+                                {{ contract.status }}
+                            </span>
+                        </td>
+                        <td class="text-right d-flex justify-content-end gap-2">
+                            <button class="btn-icon edit" title="Edit"
+                                onclick="openEditModal({{ contract.id }}, '{{ contract.creator ? contract.creator.id : '' }}', '{{ contract.asset.id }}', '{{ contract.quantity }}', '{{ contract.pricePerUnit }}', '{{ contract.contractType|escape('js') }}', '{{ contract.status|escape('js') }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{{ path('p2p_contract_delete', {'id': contract.id}) }}" method="POST" onsubmit="return confirm('Delete this contract?')">
+                                <button type="submit" class="btn-icon delete" title="Delete"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fas fa-handshake"></i>
+                                <p>No P2P contracts found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    {# \u2500\u2500 USER P2P MARKET VIEW \u2500\u2500 #}
+    {% set myContracts = [] %}
+    {% set marketContracts = [] %}
+    {% for c in contracts %}
+        {% if c.creator.id == app.session.get('user_id') %}
+            {% set myContracts = myContracts|merge([c]) %}
+        {% else %}
+            {% set marketContracts = marketContracts|merge([c]) %}
+        {% endif %}
+    {% endfor %}
+
+    {# Hero row: balance + quick stats #}
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem;">
+        <div class="nexora-holo-card nexora-glow-indigo">
+            <div class="nexora-holo-content">
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 0.5rem;"><i class="fas fa-wallet" style="margin-right: 6px; color: #6366f1;"></i>Available Balance</div>
+                <div style="font-size: 2rem; font-weight: 800; color: var(--text-main);">{{ walletBalance|number_format(2) }} <span style="font-size: 1rem; color: #6366f1; font-weight: 500;">TND</span></div>
+            </div>
+        </div>
+        <div class="nexora-holo-card nexora-glow-emerald">
+            <div class="nexora-holo-content">
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 0.5rem;"><i class="fas fa-globe" style="margin-right: 6px; color: #10b981;"></i>Open Market</div>
+                <div style="font-size: 2rem; font-weight: 800; color: var(--text-main);">{{ marketContracts|length }} <span style="font-size: 1rem; color: #10b981; font-weight: 500;">contracts</span></div>
+            </div>
+        </div>
+        <div class="nexora-holo-card nexora-glow-indigo">
+            <div class="nexora-holo-content d-flex align-items-center justify-content-between">
+                <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 0.5rem;"><i class="fas fa-file-signature" style="margin-right: 6px; color: #a855f7;"></i>My Contracts</div>
+                    <div style="font-size: 2rem; font-weight: 800; color: var(--text-main);">{{ myContracts|length }}</div>
+                </div>
+                <button onclick="document.getElementById('addContractModal').style.display='block'" class="btn btn-primary rounded-pill">
+                    <i class="fas fa-plus"></i> Post
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# Open Market Contracts #}
+    <div style="font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem;">
+        <i class="fas fa-globe" style="color: #10b981; margin-right: 8px;"></i>Open Market Listings
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.5rem; margin-bottom: 3.5rem;">
+        {% for contract in marketContracts %}
+        {% set isBuy = contract.contractType == 'BUY' %}
+        {% set total = contract.quantity * contract.pricePerUnit %}
+        <div class="nexora-holo-card {{ isBuy ? 'nexora-glow-emerald' : 'nexora-glow-ruby' }}">
+            <div class="nexora-holo-content" style="display: flex; flex-direction: column; gap: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 1.05rem;">{{ contract.asset.name }}</div>
+                        {% if reputations[contract.creator.id] is defined %}
+                            {% set r = reputations[contract.creator.id] %}
+                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                                <span style="font-size: 0.72rem; color: {{ r.color }}; border: 1px solid {{ r.color }}33; padding: 1px 6px; border-radius: 4px; font-weight: 600; background: {{ r.color }}11;">{{ r.rank }}</span>
+                                <div style="color: #f59e0b; font-size: 0.75rem;">
+                                    {% for i in 1..5 %}
+                                        <i class="f{{ r.stars >= i ? 'as' : (r.stars > (i-1) ? 'as fa-star-half-alt' : 'ar') }} fa-star"></i>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div style="font-size: 0.78rem; color: var(--text-muted);">{{ contract.asset.symbol }} &bull; Posted by #{{ contract.creator.id }}</div>
+                        {% endif %}
+                    </div>
+                    <span style="background: {{ isBuy ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }}; color: {{ isBuy ? '#10b981' : '#ef4444' }}; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; border: 1px solid {{ isBuy ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' }};">
+                        {% if isBuy %}<i class="fas fa-arrow-down"></i> WANTS TO BUY{% else %}<i class="fas fa-arrow-up"></i> SELLING{% endif %}
+                    </span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 0.8rem; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Quantity</div>
+                        <div style="font-weight: 700; font-size: 1.1rem;">{{ contract.quantity }}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 0.8rem; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Price / Unit</div>
+                        <div style="font-weight: 700; color: #10b981; font-size: 1.1rem;">{{ contract.pricePerUnit|number_format(2) }} DT</div>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.04); border-radius: 12px; padding: 1rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05);">
+                    <span style="font-size: 0.82rem; color: var(--text-muted);">Total Value</span>
+                    <span style="font-weight: 800; font-size: 1.2rem; color: {{ isBuy ? '#10b981' : '#ef4444' }};">{{ total|number_format(2) }} DT</span>
+                </div>
+                <form action="{{ path('p2p_contract_accept', {'id': contract.id}) }}" method="POST" onsubmit="return confirm('Confirm: Accept this contract? This action is final and cannot be undone.');">
+                    <button type="submit" class="btn" style="width: 100%; display: block; border-radius: 12px; padding: 0.8rem; border: 1px solid {{ isBuy ? '#10b981' : '#ef4444' }}; color: {{ isBuy ? '#10b981' : '#ef4444' }}; transition: all 0.3s; background: transparent; font-weight: 600;"
+                        onmouseover="this.style.background='{{ isBuy ? '#10b981' : '#ef4444' }}';this.style.color='white';"
+                        onmouseout="this.style.background='transparent';this.style.color='{{ isBuy ? '#10b981' : '#ef4444' }}';">
+                        <i class="fas fa-{{ isBuy ? 'tag' : 'shopping-cart' }} mr-2"></i>
+                        {{ isBuy ? 'Fulfill — Sell' : 'Fulfill — Buy' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-store-slash" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p style="margin-top: 1rem;">No open market listings right now. Be the first to post!</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    {# My Contracts #}
+    <div style="font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 1rem;">
+        <i class="fas fa-file-contract" style="color: #a855f7; margin-right: 8px;"></i>My Contracts
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.2rem;">
+        {% for contract in myContracts %}
+        {% set statusColor = contract.status == 'OPEN' ? '#a855f7' : (contract.status == 'COMPLETED' ? '#10b981' : '#6b7280') %}
+        <div style="background: var(--bg-card); border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); border-top: 3px solid {{ statusColor }}; padding: 1.4rem; display: flex; flex-direction: column; gap: 0.8rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.05rem;">{{ contract.asset.name }}</div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">{{ contract.asset.symbol }}</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <span style="background: {{ contract.contractType == 'BUY' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }}; color: {{ contract.contractType == 'BUY' ? '#10b981' : '#ef4444' }}; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 20px;">{{ contract.contractType }}</span>
+                    <span style="background: rgba(255,255,255,0.06); color: {{ statusColor }}; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 20px;">{{ contract.status }}</span>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                <div style="background: rgba(255,255,255,0.03); border-radius: 10px; padding: 0.6rem 0.8rem;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Quantity</div>
+                    <div style="font-weight: 700;">{{ contract.quantity }}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); border-radius: 10px; padding: 0.6rem 0.8rem;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Price / Unit</div>
+                    <div style="font-weight: 700; color: #10b981;">{{ contract.pricePerUnit|number_format(2) }} DT</div>
+                </div>
+            </div>
+            {% if contract.status == 'OPEN' %}
+            <form action="{{ path('p2p_contract_cancel', {'id': contract.id}) }}" method="POST" onsubmit="return confirm('Cancel this contract and refund escrow?');">
+                <button type="submit" style="width: 100%; background: rgba(239,68,68,0.08); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 0.6rem; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">
+                    <i class="fas fa-times-circle"></i> Cancel &amp; Refund
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fas fa-file-signature" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p style="margin-top: 1rem;">No contracts posted yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% endif %}
+</div>
+
+{# \u2500\u2500 Post Contract Modal \u2500\u2500 #}
+<div id="addContractModal" class="custom-modal">
+    <div class="modal-content glass" style="max-width: 520px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-handshake" style="color: #a855f7; margin-right: 10px;"></i>Post P2P Contract</h2>
+            <span class="close-btn" onclick="document.getElementById('addContractModal').style.display='none'">&times;</span>
+        </div>
+        <form action="{{ path('p2p_contract_create') }}" method="POST" id="contractForm" onsubmit="return validateContract()">
+            {% if app.session.get('role') == 'ADMIN' %}
+            <div class="form-group">
+                <label>Creator User ID</label>
+                <div class="input-with-icon"><i class="fas fa-user"></i>
+                    <input type="text" name="creatorId" placeholder="Enter target User ID">
+                </div>
+            </div>
+            {% endif %}
+
+            {# Contract type picker #}
+            <div class="form-group">
+                <label>Contract Type</label>
+                <div style="display: flex; gap: 1rem;">
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="contractType" value="BUY" checked class="ctype-radio" style="display:none;">
+                        <div class="ctype-btn" data-type="buy" style="text-align: center; padding: 0.9rem; border-radius: 12px; border: 2px solid rgba(16,185,129,0.3); color: #10b981; background: rgba(16,185,129,0.12); font-weight: 700; transition: all 0.2s;">
+                            <i class="fas fa-arrow-down"></i> BUY ORDER<br><small style="font-weight: 400; font-size: 0.72rem;">You want to purchase assets</small>
+                        </div>
+                    </label>
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="contractType" value="SELL" class="ctype-radio" style="display:none;">
+                        <div class="ctype-btn" data-type="sell" style="text-align: center; padding: 0.9rem; border-radius: 12px; border: 2px solid rgba(239,68,68,0.3); color: #ef4444; opacity: 0.5; font-weight: 700; transition: all 0.2s;">
+                            <i class="fas fa-arrow-up"></i> SELL ORDER<br><small style="font-weight: 400; font-size: 0.72rem;">You want to sell assets</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            {# Asset picker — for SELL only shows assets user holds #}
+            <div class="form-group">
+                <label>Asset</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-gem"></i>
+                    <select name="asset_id" id="contractAssetSelect" onchange="updateContractPreview()" required>
+                        <option value="" disabled selected>Select asset...</option>
+                        {% for asset in assets %}
+                        {% set held = portfolioAssets[asset.id] is defined %}
+                        <option value="{{ asset.id }}"
+                            data-price="{{ asset.value }}"
+                            data-symbol="{{ asset.symbol }}"
+                            data-held="{{ held ? 1 : 0 }}"
+                            data-qty="{{ held ? portfolioAssets[asset.id].quantity : 0 }}">
+                            {{ asset.name }} ({{ asset.symbol }}){% if held %} — Hold: {{ portfolioAssets[asset.id].quantity }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {# Contextual info box #}
+            <div id="contractInfoBox" style="display: none; border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 1rem; font-size: 0.85rem;"></div>
+
+            <div class="form-group">
+                <label>Quantity</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-cubes"></i>
+                    <input type="number" name="quantity" id="contractQty" placeholder="e.g. 10" min="1" required onchange="updateContractPreview()" oninput="updateContractPreview()">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Price Per Unit (TND)</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-coins"></i>
+                    <input type="number" name="pricePerUnit" id="contractPrice" placeholder="Market price or custom" step="0.01" min="0.01" required onchange="updateContractPreview()" oninput="updateContractPreview()">
+                </div>
+                <div id="marketPriceHint" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;"></div>
+            </div>
+
+            {# Live summary #}
+            <div id="contractSummary" style="display: none; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between;">
+                <div><div style="font-size: 0.72rem; color: var(--text-muted);">Escrow Amount</div><div id="escrowAmt" style="font-weight: 700; font-size: 1.3rem;">— DT</div></div>
+                <div style="text-align: right;"><div style="font-size: 0.72rem; color: var(--text-muted);">Your Balance After</div><div id="balanceAfter" style="font-weight: 700; font-size: 1.3rem; color: #10b981;">— DT</div></div>
+            </div>
+
+            <div id="validationError" style="display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 0.8rem; color: #ef4444; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+
+            <button type="submit" id="contractSubmitBtn" class="btn btn-primary btn-block">
+                <i class="fas fa-bolt" style="margin-right: 8px;"></i>Post Contract to Market
+            </button>
+        </form>
+    </div>
+</div>
+
+{# \u2500\u2500 Edit Contract Modal (Admin only) \u2500\u2500 #}
+<div id="editContractModal" class="custom-modal">
+    <div class="modal-content glass">
+        <div class="modal-header">
+            <h2>Edit Contract</h2>
+            <span class="close-btn" onclick="document.getElementById('editContractModal').style.display='none'">&times;</span>
+        </div>
+        <form id="editContractForm" method="POST">
+            <div class="form-group"><label>Creator User ID</label>
+                <div class="input-with-icon"><i class="fas fa-user"></i><input type="text" name="creatorId" id="editContractCreatorId"></div>
+            </div>
+            <div class="form-group"><label>Target Asset</label>
+                <div class="input-with-icon"><i class="fas fa-gem"></i>
+                    <select name="asset_id" id="editContractAssetId">
+                        {% for asset in assets %}<option value="{{ asset.id }}">{{ asset.name }} ({{ asset.symbol }})</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group"><label>Quantity</label>
+                <div class="input-with-icon"><i class="fas fa-cubes"></i><input type="text" name="quantity" id="editContractQuantity"></div>
+            </div>
+            <div class="form-group"><label>Price Per Unit (TND)</label>
+                <div class="input-with-icon"><i class="fas fa-coins"></i><input type="text" name="pricePerUnit" id="editContractPrice"></div>
+            </div>
+            <div class="form-group"><label>Contract Type</label>
+                <div class="input-with-icon"><i class="fas fa-exchange-alt"></i>
+                    <select name="contractType" id="editContractType"><option value="BUY">Buy</option><option value="SELL">Sell</option></select>
+                </div>
+            </div>
+            <div class="form-group"><label>Status</label>
+                <div class="input-with-icon"><i class="fas fa-info-circle"></i>
+                    <select name="status" id="editContractStatus">
+                        <option value="OPEN">OPEN</option><option value="ACCEPTED">ACCEPTED</option>
+                        <option value="COMPLETED">COMPLETED</option><option value="CANCELLED">CANCELLED</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const WALLET_BALANCE = {{ walletBalance }};
+    const PORTFOLIO_ASSETS = {{ portfolioAssets|json_encode|raw }};
+    let currentContractType = 'BUY';
+
+    // \u2500\u2500 Type radio toggle \u2500\u2500
+    document.querySelectorAll('.ctype-radio').forEach(r => {
+        // Trigger initial state
+        if (r.checked) {
+            r.nextElementSibling.style.opacity = '1';
+            r.nextElementSibling.style.background = r.value === 'BUY' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+            r.nextElementSibling.style.border = r.value === 'BUY' ? '2px solid #10b981' : '2px solid #ef4444';
+        }
+
+        r.addEventListener('change', () => {
+            currentContractType = r.value;
+            document.querySelectorAll('.ctype-btn').forEach(b => { 
+                b.style.opacity = '0.4'; 
+                b.style.background = 'rgba(255,255,255,0.03)';
+                b.style.border = '2px solid rgba(255,255,255,0.05)';
+            });
+            const btn = r.nextElementSibling;
+            btn.style.opacity = '1';
+            if (currentContractType === 'BUY') {
+                btn.style.background = 'rgba(16,185,129,0.15)';
+                btn.style.border = '2px solid #10b981';
+            } else {
+                btn.style.background = 'rgba(239,68,68,0.15)';
+                btn.style.border = '2px solid #ef4444';
+            }
+            updateContractPreview();
+        });
+    });
+
+    // Initialize state
+    updateContractPreview();
+
+    function updateContractPreview() {
+        const assetSel = document.getElementById('contractAssetSelect');
+        const opt = assetSel.options[assetSel.selectedIndex];
+        const qty = parseInt(document.getElementById('contractQty').value) || 0;
+        const price = parseFloat(document.getElementById('contractPrice').value) || 0;
+        const infoBox = document.getElementById('contractInfoBox');
+        const summary = document.getElementById('contractSummary');
+        const errBox = document.getElementById('validationError');
+
+        if (!opt || !opt.value) return;
+
+        const mktPrice = parseFloat(opt.dataset.price) || 0;
+        const held = parseInt(opt.dataset.qty) || 0;
+        document.getElementById('marketPriceHint').textContent = `Market price: ${mktPrice.toFixed(2)} DT`;
+
+        infoBox.style.display = 'block';
+
+        if (currentContractType === 'BUY') {
+            infoBox.style.background = 'rgba(16,185,129,0.08)';
+            infoBox.style.border = '1px solid rgba(16,185,129,0.2)';
+            infoBox.style.color = '#94a3b8';
+            infoBox.innerHTML = `<i class="fas fa-info-circle" style="color:#10b981;margin-right:6px;"></i>You're posting a <strong style="color:#10b981">BUY</strong> contract. Your wallet will be locked in escrow. Available: <strong>${WALLET_BALANCE.toFixed(2)} DT</strong>`;
+        } else {
+            const assetId = parseInt(opt.value);
+            const pa = PORTFOLIO_ASSETS[assetId];
+            if (!pa) {
+                infoBox.style.background = 'rgba(239,68,68,0.08)';
+                infoBox.style.border = '1px solid rgba(239,68,68,0.3)';
+                infoBox.style.color = '#ef4444';
+                infoBox.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>You don't hold any <strong>${opt.text.split(' (')[0]}</strong> in your portfolio.`;
+            } else {
+                infoBox.style.background = 'rgba(239,68,68,0.08)';
+                infoBox.style.border = '1px solid rgba(239,68,68,0.2)';
+                infoBox.style.color = '#94a3b8';
+                infoBox.innerHTML = `<i class="fas fa-coins" style="color:#ef4444;margin-right:6px;"></i>You're posting a <strong style="color:#ef4444">SELL</strong> contract. Your assets will be locked in escrow. You hold: <strong>${pa.quantity}</strong> units.`;
+            }
+        }
+
+        const total = qty * price;
+        if (qty > 0 && price > 0) {
+            summary.style.display = 'flex';
+            document.getElementById('escrowAmt').textContent = total.toFixed(2) + ' DT';
+            if (currentContractType === 'BUY') {
+                const after = WALLET_BALANCE - total;
+                document.getElementById('balanceAfter').textContent = after.toFixed(2) + ' DT';
+                document.getElementById('balanceAfter').style.color = after >= 0 ? '#10b981' : '#ef4444';
+            } else {
+                document.getElementById('balanceAfter').textContent = 'N/A';
+            }
+        }
+        errBox.style.display = 'none';
+    }
+
+    function validateContract() {
+        const assetSel = document.getElementById('contractAssetSelect');
+        const opt = assetSel.options[assetSel.selectedIndex];
+        const qty = parseInt(document.getElementById('contractQty').value) || 0;
+        const price = parseFloat(document.getElementById('contractPrice').value) || 0;
+        const errBox = document.getElementById('validationError');
+
+        if (!opt || !opt.value || qty < 1 || price <= 0) {
+            errBox.style.display = 'block';
+            errBox.textContent = 'Please fill in all fields correctly.';
+            return false;
+        }
+
+        const total = qty * price;
+
+        if (currentContractType === 'BUY') {
+            if (WALLET_BALANCE < total) {
+                errBox.style.display = 'block';
+                errBox.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Insufficient balance. You need <strong>${total.toFixed(2)} DT</strong> but only have <strong>${WALLET_BALANCE.toFixed(2)} DT</strong>.`;
+                return false;
+            }
+        } else {
+            const assetId = parseInt(opt.value);
+            const pa = PORTFOLIO_ASSETS[assetId];
+            if (!pa || pa.quantity < qty) {
+                errBox.style.display = 'block';
+                errBox.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>Insufficient holdings. You have <strong>${pa ? pa.quantity : 0}</strong> units but need <strong>${qty}</strong>.`;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // \u2500\u2500 Edit modal helper \u2500\u2500
+    function openEditModal(id, creatorId, assetId, quantity, price, type, status) {
+        document.getElementById('editContractForm').action = "{{ path('p2p_contract_index') }}/update/" + id;
+        document.getElementById('editContractCreatorId').value = creatorId;
+        document.getElementById('editContractAssetId').value = assetId;
+        document.getElementById('editContractQuantity').value = quantity;
+        document.getElementById('editContractPrice').value = parseFloat(price).toFixed(2);
+        const typeSelect = document.getElementById('editContractType');
+        for (let i = 0; i < typeSelect.options.length; i++) {
+            if (typeSelect.options[i].value.toUpperCase() === type.toUpperCase()) { typeSelect.options[i].selected = true; break; }
+        }
+        const statusSelect = document.getElementById('editContractStatus');
+        for (let i = 0; i < statusSelect.options.length; i++) {
+            if (statusSelect.options[i].value.toUpperCase() === status.toUpperCase()) { statusSelect.options[i].selected = true; break; }
+        }
+        document.getElementById('editContractModal').style.display = 'block';
+    }
+
+    window.onclick = function(event) {
+        if (event.target.className === 'custom-modal') event.target.style.display = 'none';
+    }
+</script>
+{% endblock %}
+
+

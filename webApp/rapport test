@@ -1,0 +1,326 @@
+# 🧪 Tests Unitaires Nexora — Guide Complet
+
+> **Résultat final : 164 tests ✅ · 304 assertions · 0 échec · 90ms**
+
+---
+
+## Qu'est-ce qu'un test unitaire ?
+
+Un test unitaire vérifie qu'**une seule unité de code** (une méthode, une classe) se comporte correctement, **en isolation totale** — sans base de données, sans réseau, sans autres services.
+
+### Le pattern AAA — toujours le même
+
+```php
+public function testExemple(): void
+{
+    // ARRANGE — Préparer les données
+    $wallet = new Wallet();
+    $wallet->setBalance('310.00');
+
+    // ACT — Appeler la méthode testée
+    $result = $wallet->getUsdtBalance();
+
+    // ASSERT — Vérifier le résultat
+    $this->assertSame(100.0, $result);
+}
+```
+
+---
+
+## Architecture des fichiers créés
+
+```
+tests/
+├── bootstrap.php                  ← déjà existant (chargement Symfony)
+│
+├── Entity/                        ← Tests des entités (sans BDD)
+│   ├── AssetTest.php              ← 14 tests
+│   ├── OrderTest.php              ← 9 tests
+│   ├── P2pContractTest.php        ← 11 tests
+│   ├── PortfolioTest.php          ← 15 tests
+│   ├── UserReputationTest.php     ← 13 tests
+│   ├── UserTest.php               ← 20 tests
+│   ├── WalletGoalTest.php         ← 21 tests
+│   └── WalletTest.php             ← 13 tests
+│
+└── Service/                       ← Tests des services (avec mocks)
+    ├── AiServiceTest.php          ← 9 tests
+    ├── AssetPriceServiceTest.php  ← 9 tests
+    ├── CurrencyServiceTest.php    ← 6 tests
+    ├── ReputationServiceTest.php  ← 13 tests
+    └── SentimentAiServiceTest.php ← 11 tests
+```
+
+---
+
+## Comment lancer les tests
+
+```bash
+# Tous les tests (avec affichage détaillé)
+php vendor/phpunit/phpunit/phpunit --configuration phpunit.dist.xml --testdox
+
+# Un seul fichier de test
+php vendor/phpunit/phpunit/phpunit tests/Entity/WalletGoalTest.php --testdox
+
+# Un seul test spécifique
+php vendor/phpunit/phpunit/phpunit --filter testGetUsdtBalanceConversion
+```
+
+---
+
+## Explication de chaque fichier de test
+
+---
+
+### 🔵 Tests des Entités (`tests/Entity/`)
+
+Les entités sont des classes PHP pures, sans dépendances. On les instancie directement avec `new` — **jamais besoin de BDD**.
+
+---
+
+#### `AssetTest.php` — 14 tests
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testNewAssetHasNullValues` | Toutes les propriétés sont `null` avant persistance Doctrine |
+| `testSetAndGetName/Symbol/Value/Type` | Chaque setter stocke correctement et chaque getter retourne exactement |
+| `testSymbolIsNotConfusedWithName` | `setName` et `setSymbol` sont indépendants (pas de copier-coller inversé) |
+| `testSetValueWithVerySmallFloat` | Supporte les très petits floats (DOGE, SHIB à $0.000001) |
+| `testSettersAreChainable` | `(new Asset())->setName('BTC')->setSymbol('BTC')` fonctionne |
+| `testCompleteBitcoinAsset/Ethereum` | Scénarios réalistes de création |
+
+---
+
+#### `OrderTest.php` — 9 tests
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testNewOrderHasNullValues` | Valeurs null avant `persist()` |
+| `testSetAndGetType` | `'BUY'` et `'SELL'` stockés correctement |
+| `testSettersAreFluentChainable` | `$order->setType('BUY')->setQuantity(5)->setPrice(1000.0)` |
+| `testCompleteOrderBuyScenario` | Ordre complet : 5 ETH × 3200 = 16 000 TND |
+| `testOrderSellType` | Calcul total pour un ordre SELL |
+
+---
+
+#### `P2pContractTest.php` — 11 tests
+
+**Règle principale** : Le constructeur initialise `status = 'OPEN'` et `createdAt` automatiquement.
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testConstructorSetsDefaultValues` | `status='OPEN'` et `createdAt` non-null à la création |
+| `testContractLifecycleFromOpenToCompleted` | Cycle complet : OPEN → ACCEPTED → COMPLETED |
+| `testContractCanBeCancelled` | OPEN → CANCELLED sans affecter `acceptedAt` |
+| `testTotalAmountCalculation` | `quantity × pricePerUnit = total` |
+| `testFullP2pBuyContractScenario` | Alice achète 1 BTC à Bob pour 50 000 TND |
+
+---
+
+#### `PortfolioTest.php` — 15 tests
+
+**Règle clé** : `recalculateTotalValue()` = somme de `(qty × asset.value)` pour tous les actifs.
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testAddSamePortfolioAssetTwiceDoesNotDuplicate` | Idempotence : pas de doublons |
+| `testAddPortfolioAssetSyncsInverseRelation` | `pa->getPortfolio()` pointe vers le bon portfolio |
+| `testRecalculateTotalValueWithMultipleAssets` | BTC+ETH+SOL = 66 500 TND |
+| `testRecalculateTotalValueAfterPriceUpdate` | Recalcul correct après mise à jour du prix |
+| `testRecalculateTotalValueAfterRemovingAsset` | Suppression d'actif = valeur réduite |
+
+---
+
+#### `UserReputationTest.php` — 13 tests
+
+**Règle critique** : `getAverageRating()` = `totalScore / ratingCount` — **sans jamais diviser par zéro**.
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testAverageRatingIsZeroWhenNoRatings` | `ratingCount=0` → retourne `0.0` (pas de crash) |
+| `testAverageRatingWithSinglePerfectRating` | `5/1 = 5.0` |
+| `testAverageRatingWithMultipleRatings` | `12/3 = 4.0` |
+| `testAverageRatingCanBeDecimal` | `7/3 ≈ 2.333` |
+
+---
+
+#### `UserTest.php` — 20 tests
+
+**Règles** : Email normalisé en minuscules, `ROLE_USER` toujours présent (sans doublon), associations bidirectionnelles.
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testSetEmailNormalizesToLowercase` | `"Alice@NEXORA.IO"` → `"alice@nexora.io"` |
+| `testGetRolesAlwaysContainsRoleUser` | `ROLE_USER` toujours dans le tableau |
+| `testGetRolesDeduplicatesRoleUser` | Pas de doublon même si passé 2 fois |
+| `testHasRoleAdminReturnsFalseForNormalUser` | Sécurité : un user normal n'est pas admin |
+| `testSetWalletCreatesAssociation` | `user->wallet` et `wallet->user` synchronisés |
+| `testGetUserIdentifierReturnsEmail` | Symfony Security utilise l'email comme identifiant |
+
+---
+
+#### `WalletTest.php` — 13 tests
+
+**Règles métier** :
+- `getUsdtBalance()` = balance TND ÷ 3.10
+- `getEurBalance()` = balance TND ÷ 3.35
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testGetUsdtBalanceConversion` | 310 TND ÷ 3.10 = 100 USDT |
+| `testGetEurBalanceConversion` | 335 TND ÷ 3.35 = 100 EUR |
+| `testUsdtAndEurBalancesAreDifferent` | Les 2 taux donnent des résultats différents |
+| `testDefaultBalanceIsZero` | Solde initial = `'0.00'` |
+| `testCollectionsAreInitializedEmpty` | Goals/logs/notifications vides à la création |
+
+---
+
+#### `WalletGoalTest.php` — 21 tests
+
+**L'entité la plus riche en logique métier.**
+
+| Règle | Méthode | Tests |
+|-------|---------|-------|
+| Calcul progression | `getProgression()` | 7 tests |
+| Statut dynamique | `getStatus()` | 6 tests |
+| Urgence deadline | `isUrgent()` | 6 tests |
+
+```
+Progression :  balance / targetAmount × 100  [0..100]
+Status :       cancelled > achieved (≥100%) > expired (deadline passée) > in_progress
+isUrgent :     deadline ≤ 7 jours ET progression < 100 ET pas annulé
+```
+
+---
+
+### 🟠 Tests des Services (`tests/Service/`)
+
+Les services ont des dépendances (HTTP, BDD, cache…). On utilise des **Mocks** pour les isoler.
+
+#### Qu'est-ce qu'un Mock ?
+
+```php
+// Créer un faux objet (jamais de vraie requête HTTP !)
+$httpClient = $this->createMock(HttpClientInterface::class);
+
+// Lui dire quoi retourner
+$httpClient->method('request')->willReturn($fakeResponse);
+
+// Vérifier qu'il est bien appelé (ou jamais appelé)
+$httpClient->expects($this->once())->method('request');
+$httpClient->expects($this->never())->method('request');
+```
+
+---
+
+#### `SentimentAiServiceTest.php` — 11 tests
+
+**Pas de mock** — le service est auto-contenu (Naive Bayes local, pas de réseau).
+
+| Test | Ce qu'il vérifie |
+|------|-----------------|
+| `testClassifyReturnsBullishForBullishText` | "surge moon rally" → `BULLISH` |
+| `testClassifyReturnsBearishForBearishText` | "crash dump panic" → `BEARISH` |
+| `testClassifyReturnsNeutralForNeutralText` | "sideways consolidation" → `NEUTRAL` |
+| `testClassifyIsCaseInsensitive` | "SURGE" = "surge" (même résultat) |
+| `testGetPortfolioAdviceHighConcentrationIsBearish` | BTC à 97% du portfolio → BEARISH forcé |
+| `testGetPortfolioAdviceWellDiversifiedIsLowRisk` | 3 actifs équilibrés → risque Low |
+| `testGetPortfolioAdviceConcentrationPercentageIsCorrect` | "75%" apparaît dans le conseil |
+
+---
+
+#### `AiServiceTest.php` — 9 tests
+
+**Mocks** : `HttpClientInterface` + `LoggerInterface`
+
+| Test | Scénario simulé |
+|------|----------------|
+| `testGetFinancialAdviceWithEmptyApiKeyReturnsConfigMessage` | Clé vide → message config, 0 appel HTTP |
+| `testGetFinancialAdviceReturnsApiTextOnSuccess` | API 200 → texte de l'API retourné |
+| `testGetFinancialAdviceFallsBackToMockAdviceOn429` | API 429 → fallback local activé |
+| `testGetFinancialAdviceFallsBackToMockAdviceOnNetworkException` | Timeout → logger.error() appelé + fallback |
+| `testMockAdviceAt100PercentProgression` | 100% → message de félicitations + "atteint" |
+| `testMockAdviceWithUrgentDeadline` | 3 jours restants → "Alerte Deadline" |
+
+---
+
+#### `CurrencyServiceTest.php` — 6 tests
+
+**Mocks** : `HttpClientInterface` + `CacheInterface`
+
+**Technique spéciale** : Mock du cache qui exécute le callback directement (simule un cache vide) :
+
+```php
+$this->cache->method('get')
+    ->willReturnCallback(function (string $key, callable $callback) use ($fakeItem) {
+        return $callback($fakeItem); // Exécute comme si le cache était vide
+    });
+```
+
+| Test | Scénario simulé |
+|------|----------------|
+| `testGetUsdTndRateReturnsApiRateOnSuccess` | API 200 → 3.20 retourné |
+| `testGetUsdTndRateReturnsFallbackOnNonOkStatus` | API 503 → fallback 3.15 |
+| `testGetUsdTndRateReturnsFallbackOnNetworkException` | Timeout → fallback 3.15 |
+| `testGetUsdTndRateUsesCache` | Cache chaud → 0 appel HTTP |
+
+---
+
+#### `ReputationServiceTest.php` — 13 tests
+
+**Pas de mock** — ReputationService n'a aucune dépendance externe.
+
+| Rang | Condition | Couleur |
+|------|-----------|---------|
+| Newcomer | Pas de réputation | `#94a3b8` |
+| Rookie | 0 complété | `#94a3b8` |
+| Active Member | 1–4 complétés | `#10b981` |
+| Verified Pro | 5–19 complétés | `#6366f1` |
+| Expert Trader | 20–49 complétés | `#a855f7` |
+| Grand Master | ≥ 50 complétés | `#f59e0b` |
+
+Chaque frontière est testée (1, 4, 5, 19, 20, 50, 100).
+
+---
+
+#### `AssetPriceServiceTest.php` — 9 tests
+
+**Le plus complexe** — 5 dépendances mockées simultanément :
+
+```
+HttpClientInterface  → CoinGecko API
+EntityManagerInterface → flush() BDD
+AssetRepository      → findAll()
+LoggerInterface      → error()
+CurrencyService      → getUsdTndRate()
+```
+
+| Test | Scénario |
+|------|----------|
+| `testSyncAssetPricesUpdatesAssetsCorrectly` | BTC+ETH mis à jour : prix USD × taux TND |
+| `testSyncAssetPricesReturnsZeroOnNetworkException` | Exception → logger.error() + 0 flush |
+| `testSyncAssetPricesIsCaseInsensitiveForSymbols` | `'btc'` (minuscule) reconnu comme BTC |
+| `testRecalculatePortfoliosWithMultiplePortfolios` | 2 portfolios recalculés indépendamment |
+
+---
+
+## Résumé des résultats
+
+| Fichier de test | Tests | Assertions |
+|----------------|-------|-----------|
+| `SentimentAiServiceTest` | 11 | 22 |
+| `AiServiceTest` | 9 | 16 |
+| `CurrencyServiceTest` | 6 | 9 |
+| `ReputationServiceTest` | 13 | 30 |
+| `AssetPriceServiceTest` | 9 | 21 |
+| `AssetTest` | 14 | 20 |
+| `OrderTest` | 9 | 19 |
+| `P2pContractTest` | 11 | 26 |
+| `PortfolioTest` | 15 | 26 |
+| `UserReputationTest` | 13 | 22 |
+| `UserTest` | 20 | 45 |
+| `WalletTest` | 13 | 20 |
+| `WalletGoalTest` | 21 | 34 |
+| **TOTAL** | **164** | **304** |
+
+> ⏱ Temps d'exécution : **90ms** — les tests unitaires sont ultra-rapides car ils n'utilisent ni BDD ni réseau.

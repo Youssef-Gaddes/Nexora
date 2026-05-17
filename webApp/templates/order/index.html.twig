@@ -1,0 +1,345 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Orders - Nexora{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="page-heading">
+            {{ app.session.get('role') == 'ADMIN' ? 'Manage Orders' : 'Market Orders' }}
+        </h1>
+        {% if app.session.get('role') == 'ADMIN' %}
+        <button class="btn btn-primary" onclick="document.getElementById('addOrderModal').style.display='block'">
+            <i class="fas fa-plus"></i> New Order
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="stats-row mb-4">
+        <div class="nexora-holo-card nexora-glow-indigo">
+            <div class="nexora-holo-content d-flex align-items-center gap-4">
+                <div class="stat-icon purple"><i class="fas fa-shopping-cart"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Active Orders</span>
+                    <span class="stat-value">{{ activeCount }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if app.session.get('role') == 'ADMIN' %}
+    <div class="data-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3>Registered Orders</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>User ID</th>
+                        <th>Asset Name</th>
+                        <th>Quantity</th>
+                        <th>Price (TND)</th>
+                        <th>Type</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr class="wallet-row">
+                        <td><span class="id-badge">#O{{ order.id }}</span></td>
+                        <td>
+                            <div class="owner-cell">
+                                <span>User #{{ order.user ? order.user.id : 'N/A' }}</span>
+                            </div>
+                        </td>
+                        <td><strong>{{ order.asset.name }} ({{ order.asset.symbol }})</strong></td>
+                        <td>{{ order.quantity }}</td>
+                        <td>
+                            <span class="price-text text-success">
+                                {{ order.price|number_format(2) }} DT
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge {{ order.type|lower == 'buy' ? 'deposit' : 'withdrawal' }}">
+                                {{ order.type|upper }}
+                            </span>
+                        </td>
+                        <td class="text-right d-flex justify-content-end gap-2">
+                            <button class="btn-icon edit" title="Edit"
+                                onclick="openEditModal({{ order.id }}, '{{ order.user ? order.user.id : '' }}', '{{ order.asset.id }}', '{{ order.quantity }}', '{{ order.price }}', '{{ order.type|escape('js') }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <form action="{{ path('order_delete', {'id': order.id}) }}" method="POST" onsubmit="return confirm('Delete this order?')">
+                                <button type="submit" class="btn-icon delete" title="Delete"><i class="fas fa-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fas fa-shopping-cart"></i>
+                                <p>No orders found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    {# ── USER MARKET GRID VIEW ── #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="font-weight-light" style="color: var(--text-color);">My Active Orders</h2>
+        <button class="btn btn-primary" onclick="document.getElementById('addOrderModal').style.display='block'" style="border-radius: 50px; padding: 10px 25px;">
+            <i class="fas fa-plus"></i> Place Order
+        </button>
+    </div>
+    
+    <div class="row">
+        {% for order in orders %}
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                <div class="nexora-holo-card {{ order.type|lower == 'buy' ? 'nexora-glow-emerald' : 'nexora-glow-ruby' }} h-100">
+                    <div class="nexora-holo-content">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="card-title font-weight-bold mb-0">
+                                <i class="fas fa-bolt mr-2" style="color: #a855f7;"></i>
+                                {{ order.asset.name }} <span class="text-muted" style="font-size: 0.8rem;">({{ order.asset.symbol }})</span>
+                            </h5>
+                            <span class="badge {{ order.type|lower == 'buy' ? 'bg-success' : 'bg-danger' }}" style="font-size: 11px; padding: 5px 10px; border-radius: 50px;">
+                                {{ order.type|upper }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted"><i class="fas fa-boxes mr-1"></i> Quantity:</span>
+                            <span class="font-weight-bold">{{ order.quantity }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-muted"><i class="fas fa-bullseye mr-1"></i> Target Price:</span>
+                            <span class="font-weight-bold text-success">{{ order.price|number_format(2) }} DT</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.05);">
+                            <span class="text-muted" style="font-size: 0.9em;">Total Ref Value:</span>
+                            <span class="font-weight-bold text-primary" style="font-size: 0.9em;">{{ (order.quantity * order.price)|number_format(2) }} DT</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12 py-5 text-center text-muted">
+                <i class="fas fa-box-open" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="mt-3">You don't have any active spot orders pending execution.</p>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{# ── Add Order Modal ── #}
+<div id="addOrderModal" class="custom-modal">
+    <div class="nexora-holo-card nexora-glow-indigo" style="max-width: 500px; margin: 10% auto;">
+        <div class="nexora-holo-content">
+            <div class="modal-header">
+                <h2 class="holographic-text"><i class="fas fa-chart-line" style="margin-right: 10px;"></i>Place Market Order</h2>
+                <span class="close-btn" onclick="document.getElementById('addOrderModal').style.display='none'">&times;</span>
+            </div>
+        <form action="{{ path('order_create') }}" method="POST" id="orderForm">
+            {% if app.session.get('role') == 'ADMIN' %}
+            <div class="form-group">
+                <label>User ID</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="userId" placeholder="Enter target User ID">
+                </div>
+            </div>
+            {% endif %}
+            <div class="form-group">
+                <label>Select Asset</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-gem"></i>
+                    <select name="asset_id" id="assetSelect" onchange="updateAssetPreview(this)" required>
+                        <option value="" disabled selected>Choose an asset...</option>
+                        {% for asset in assets %}
+                            <option value="{{ asset.id }}" data-price="{{ asset.value }}" data-symbol="{{ asset.symbol }}">
+                                {{ asset.name }} ({{ asset.symbol }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {# Live price preview panel #}
+            <div id="pricePreviewBox" style="display: none; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Current Market Price</div>
+                        <div id="livePrice" style="font-size: 1.6rem; font-weight: 700; color: #10b981;">— DT</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Order Total</div>
+                        <div id="orderTotal" style="font-size: 1.2rem; font-weight: 600; color: var(--accent);">— DT</div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Quantity</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-sort-amount-up"></i>
+                    <input type="number" name="quantity" id="quantityInput" placeholder="e.g. 5" min="1" required onchange="updateTotal()" oninput="updateTotal()">
+                </div>
+            </div>
+            {% if app.session.get('role') == 'ADMIN' %}
+            <div class="form-group">
+                <label>Price Override (TND) <small class="text-muted">— Admin only</small></label>
+                <div class="input-with-icon">
+                    <i class="fas fa-coins"></i>
+                    <input type="number" name="price" placeholder="Leave empty to use market price" step="0.01">
+                </div>
+            </div>
+            {% endif %}
+            <div class="form-group">
+                <label>Order Type</label>
+                <div style="display: flex; gap: 1rem;">
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="type" value="Buy" checked style="display: none;" class="type-radio">
+                        <div class="type-btn" data-type="buy" style="text-align: center; padding: 0.8rem; border-radius: 10px; border: 2px solid rgba(16,185,129,0.3); color: #10b981; transition: all 0.2s;">
+                            <i class="fas fa-arrow-down"></i> BUY
+                        </div>
+                    </label>
+                    <label style="flex: 1; cursor: pointer;">
+                        <input type="radio" name="type" value="Sell" style="display: none;" class="type-radio">
+                        <div class="type-btn" data-type="sell" style="text-align: center; padding: 0.8rem; border-radius: 10px; border: 2px solid rgba(239,68,68,0.3); color: #ef4444; transition: all 0.2s;">
+                            <i class="fas fa-arrow-up"></i> SELL
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 0.5rem;">
+                <i class="fas fa-bolt" style="margin-right: 8px;"></i>Execute Order at Market Price
+            </button>
+        </form>
+        </div>
+    </div>
+</div>
+
+{# ── Edit Order Modal ── #}
+<div id="editOrderModal" class="custom-modal">
+    <div class="modal-content glass">
+        <div class="modal-header">
+            <h2>Edit Order</h2>
+            <span class="close-btn" onclick="document.getElementById('editOrderModal').style.display='none'">&times;</span>
+        </div>
+        <form id="editOrderForm" method="POST">
+            <div class="form-group">
+                <label>User ID</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="userId" id="editOrderUserId">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Target Asset</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-gem"></i>
+                    <select name="asset_id" id="editOrderAssetId">
+                        {% for asset in assets %}
+                            <option value="{{ asset.id }}">{{ asset.name }} ({{ asset.symbol }}) - {{ asset.value|number_format(2) }} DT</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Quantity</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-sort-amount-up"></i>
+                    <input type="text" name="quantity" id="editOrderQuantity">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Target Price (TND)</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-coins"></i>
+                    <input type="text" name="price" id="editOrderPrice">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Order Type</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-exchange-alt"></i>
+                    <select name="type" id="editOrderType">
+                        <option value="Buy">Buy</option>
+                        <option value="Sell">Sell</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // ── Live asset price preview ──
+    let currentAssetPrice = 0;
+
+    function updateAssetPreview(select) {
+        const opt = select.options[select.selectedIndex];
+        currentAssetPrice = parseFloat(opt.dataset.price) || 0;
+        const symbol = opt.dataset.symbol || '';
+        document.getElementById('livePrice').textContent = currentAssetPrice.toFixed(2) + ' DT';
+        document.getElementById('pricePreviewBox').style.display = 'block';
+        updateTotal();
+    }
+
+    function updateTotal() {
+        const qty = parseInt(document.getElementById('quantityInput').value) || 0;
+        const total = qty * currentAssetPrice;
+        document.getElementById('orderTotal').textContent = total > 0 ? total.toFixed(2) + ' DT' : '— DT';
+    }
+
+    // ── Styled radio BUY/SELL buttons ──
+    document.querySelectorAll('.type-radio').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.querySelectorAll('.type-btn').forEach(btn => {
+                const isBuy = btn.dataset.type === 'buy';
+                btn.style.background = 'transparent';
+                btn.style.opacity = '0.5';
+            });
+            const selected = radio.nextElementSibling;
+            selected.style.opacity = '1';
+            if (radio.value === 'Buy') {
+                selected.style.background = 'rgba(16,185,129,0.15)';
+            } else {
+                selected.style.background = 'rgba(239,68,68,0.15)';
+            }
+        });
+    });
+    // init first
+    document.querySelector('.type-btn[data-type="buy"]').style.background = 'rgba(16,185,129,0.15)';
+
+    // ── Edit modal helper ──
+    function openEditModal(id, userId, assetId, quantity, price, type) {
+        document.getElementById('editOrderForm').action = "{{ path('order_index') }}/update/" + id;
+        document.getElementById('editOrderUserId').value = userId;
+        document.getElementById('editOrderAssetId').value = assetId;
+        document.getElementById('editOrderQuantity').value = quantity;
+        document.getElementById('editOrderPrice').value = parseFloat(price).toFixed(2);
+        const typeSelect = document.getElementById('editOrderType');
+        for(let i = 0; i < typeSelect.options.length; i++) {
+            if(typeSelect.options[i].value.toLowerCase() === type.toLowerCase()) {
+                typeSelect.options[i].selected = true;
+                break;
+            }
+        }
+        document.getElementById('editOrderModal').style.display = 'block';
+    }
+
+    window.onclick = function(event) {
+        if (event.target.className === 'custom-modal') {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

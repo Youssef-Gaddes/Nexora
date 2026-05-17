@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Rapport de Tests — Nexora Platform</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #1e293b;
+      line-height: 1.7;
+      padding: 40px 60px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    @media print {
+      body {
+        padding: 20px 40px;
+      }
+
+      .page-break {
+        page-break-before: always;
+      }
+    }
+
+    /* Header */
+    .cover {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 3px solid #6366f1;
+      margin-bottom: 40px;
+    }
+
+    .cover h1 {
+      font-size: 32px;
+      color: #6366f1;
+      margin-bottom: 8px;
+    }
+
+    .cover h2 {
+      font-size: 20px;
+      font-weight: 400;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+
+    .cover .meta {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .cover .meta span {
+      display: inline-block;
+      margin: 0 12px;
+    }
+
+    /* Sections */
+    h2.section-title {
+      font-size: 22px;
+      color: #fff;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin: 40px 0 20px;
+    }
+
+    h3 {
+      font-size: 17px;
+      color: #6366f1;
+      margin: 28px 0 10px;
+      border-left: 4px solid #6366f1;
+      padding-left: 12px;
+    }
+
+    h4 {
+      font-size: 15px;
+      color: #475569;
+      margin: 18px 0 8px;
+    }
+
+    p,
+    li {
+      font-size: 14px;
+      color: #334155;
+    }
+
+    ul {
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    /* Screenshot placeholder */
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .screenshot {
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 13px;
+      background: #f8fafc;
+      min-height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .screenshot .icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .screenshot img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    .screenshot img[src=""] {
+      display: none;
+    }
+
+    /* Hide empty images */
+    .screenshot img:not([src=""])+.placeholder-text {
+      display: none;
+    }
+
+    /* Hide placeholder text when image has source */
+
+    /* Code block */
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      overflow-x: auto;
+      margin: 10px 0 20px;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 24px;
+      font-size: 13px;
+    }
+
+    th {
+      background: #6366f1;
+      color: #fff;
+      padding: 10px 14px;
+      text-align: left;
+    }
+
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-pass {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-fail {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    /* Summary box */
+    .summary-box {
+      background: linear-gradient(135deg, #f0f9ff, #ede9fe);
+      border: 1px solid #c7d2fe;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 16px 0 24px;
+    }
+
+    .summary-box .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .summary-box .label {
+      font-weight: 600;
+      color: #475569;
+    }
+
+    .summary-box .value {
+      font-weight: 700;
+      color: #6366f1;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════ COVER ═══════════════════════════════════════ -->
+  <div class="cover">
+    <h1>📋 Rapport de Tests</h1>
+    <h2>Nexora — Plateforme de Gestion de Portefeuille Crypto</h2>
+    <div class="meta">
+      <span>📅 Date : ___/___/2026</span>
+      <span>👤 Auteur : _________________</span>
+      <span>📦 Symfony 6.4</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ TABLE OF CONTENTS ═══════════════════════════ -->
+  <h3>Table des Matières</h3>
+  <ul>
+    <li><strong>Partie 1</strong> — Tests Unitaires (Entity & Service)</li>
+    <li><strong>Partie 2</strong> — Tests Statiques (Structure & Validation)</li>
+    <li><strong>Partie 3</strong> — Tests Doctrine (Mapping & Relations)</li>
+  </ul>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════════════════════════╗ -->
+  <!-- ║                        PARTIE 1 — TESTS UNITAIRES                                  ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════════════════════════════╝ -->
+  <div class="page-break"></div>
+  <h2 class="section-title">Partie 1 — Tests Unitaires</h2>
+
+  <p>Les tests unitaires vérifient la <strong>logique métier</strong> de chaque entité et service en isolation, sans
+    connexion à la base de données. Ils utilisent des mocks pour simuler les dépendances externes.</p>
+
+  <div class="summary-box">
+    <div class="row"><span class="label">Fichiers de test :</span><span class="value">17 fichiers</span></div>
+    <div class="row"><span class="label">Tests :</span><span class="value">211</span></div>
+    <div class="row"><span class="label">Assertions :</span><span class="value">386</span></div>
+    <div class="row"><span class="label">Résultat :</span><span class="value"><span class="badge badge-pass">✅
+          OK</span></span></div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Fichier de test</th>
+      <th>Nb tests</th>
+      <th>Couverture</th>
+    </tr>
+    <tr>
+      <td>tests/Entity/UserTest.php</td>
+      <td>20</td>
+      <td>Getters, setters, roles, email lowercase</td>
+    </tr>
+    <tr>
+      <td>tests/Entity/WalletTest.php</td>
+      <td>13</td>
+      <td>Balance, conversion USDT/EUR, collections</td>
+    </tr>
+    <tr>
+      <td>tests/Entity/PortfolioTest.php</td>
+      <td>15</td>
+      <td>Add/remove assets, recalculateTotalValue</td>
+    </tr>
+    <tr>
+      <td>tests/Entity/WalletGoalTest.php</td>
+      <td>21</td>
+      <td>Progression, urgence, statut dynamique</td>
+    </tr>
+    <tr>
+      <td>tests/Entity/P2pContractTest.php</td>
+      <td>11</td>
+      <td>Cycle de vie OPEN→COMPLETED/CANCELLED</td>
+    </tr>
+    <tr>
+      <td>tests/Entity/OrderTest.php</td>
+      <td>9</td>
+      <td>BUY/SELL, fluent setters</td>
+    </tr>
+    <tr>
+      <td>tests/Service/AssetPriceServiceTest.php</td>
+      <td>9</td>
+      <td>Sync prix, gestion erreurs réseau</td>
+    </tr>
+    <tr>
+      <td>tests/Service/SentimentAiServiceTest.php</td>
+      <td>11</td>
+      <td>Classification bullish/bearish, portfolio advice</td>
+    </tr>
+    <tr>
+      <td>tests/Service/ReputationServiceTest.php</td>
+      <td>13</td>
+      <td>Rangs, étoiles, stats</td>
+    </tr>
+    <tr>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+  </table>
+
+  <!-- Exemples de code -->
+  <h3>Exemple 1 — Test Entity : WalletGoal Progression</h3>
+  <pre><code>public function testProgressionFiftyPercent(): void
+{
+    $wallet = new Wallet();
+    $wallet->setBalance('500.00');
+
+    $goal = new WalletGoal();
+    $goal->setWallet($wallet);
+    $goal->setTargetAmount('1000.00');
+
+    $this->assertSame(50, $goal->getProgression());
+}</code></pre>
+
+  <h3>Exemple 2 — Test Service : ReputationService Ranks</h3>
+  <pre><code>public function testRankIsExpertTraderWithTwentyCompleted(): void
+{
+    $rep = new UserReputation();
+    $rep->setCompletedContracts(20);
+    $rep->setCanceledContracts(0);
+    $user = $this->createMock(User::class);
+    $user->method('getReputation')->willReturn($rep);
+
+    $stats = $this->service->getReputationStats($user);
+
+    $this->assertSame('Expert Trader', $stats['rank']);
+    $this->assertSame('#a855f7', $stats['color']);
+}</code></pre>
+
+  <!-- Screenshots tests unitaires -->
+  <h3>Captures — Tests unitaires en échec (avant correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/nop/user.png" alt="Test unitaire en échec 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 1<br><em>Remplacer src="" par le chemin de l'image (ex:
+          src="img/fail1.png")</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/nop/walet.png" alt="Test unitaire en échec 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/nop/order.png" alt="Test unitaire en échec 3">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 3<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+  <h3>Captures — Tests unitaires réussis (après correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/yes/user.png" alt="Test unitaire réussi 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 1<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/yes/walet.png" alt="Test unitaire réussi 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/yes/order.png" alt="Test unitaire réussi 3">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 3<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ╔══════════════════════════════════════════════════════════════════════════════════════╗ -->
+  <!-- ║                        PARTIE 2 — TESTS STATIQUES                                  ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════════════════════════════╝ -->
+  <div class="page-break"></div>
+  <h2 class="section-title">Partie 2 — Tests Statiques</h2>
+
+  <p>Les tests statiques vérifient la <strong>structure du code</strong> sans l'exécuter fonctionnellement : existence
+    des classes, namespaces, signatures de méthodes, contraintes de validation Symfony, et héritage correct.</p>
+
+  <div class="summary-box">
+    <div class="row"><span class="label">Fichiers de test :</span><span class="value">4 fichiers</span></div>
+    <div class="row"><span class="label">Tests :</span><span class="value">~330</span></div>
+    <div class="row"><span class="label">Assertions :</span><span class="value">~650</span></div>
+    <div class="row"><span class="label">Résultat :</span><span class="value"><span class="badge badge-pass">✅
+          OK</span></span></div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Fichier de test</th>
+      <th>Nb tests</th>
+      <th>Ce qui est vérifié</th>
+    </tr>
+    <tr>
+      <td>tests/Static/EntityClassStructureTest.php</td>
+      <td>~160</td>
+      <td>Existence des 13 entités, getId(), getter/setter, return self, constructors, interfaces User</td>
+    </tr>
+    <tr>
+      <td>tests/Static/RepositoryClassStructureTest.php</td>
+      <td>~80</td>
+      <td>13 repos existent, héritent ServiceEntityRepository, constructeur ManagerRegistry, méthodes custom</td>
+    </tr>
+    <tr>
+      <td>tests/Static/ServiceControllerStructureTest.php</td>
+      <td>~65</td>
+      <td>7 services + 11 controllers existent, namespace, AbstractController, méthodes publiques</td>
+    </tr>
+    <tr>
+      <td>tests/Static/ValidationConstraintsTest.php</td>
+      <td>~26</td>
+      <td>Contraintes #[NotBlank], #[Email], #[Choice], #[Positive], #[PositiveOrZero] sur les entités</td>
+    </tr>
+  </table>
+
+  <!-- Exemples de code -->
+  <h3>Exemple 1 — Vérification de l'existence des entités</h3>
+  <pre><code>/**
+ * @dataProvider entityClassProvider
+ */
+public function testEntityClassExists(string $className): void
+{
+    $this->assertTrue(
+        class_exists($className),
+        sprintf('Entity class "%s" does not exist.', $className)
+    );
+}
+
+// Vérifie les 13 entités : User, Wallet, Portfolio, Asset, Order,
+// P2pContract, Transaction, Category, Notification, ActivityLog,
+// UserReputation, WalletGoal, PortfolioAsset</code></pre>
+
+  <h3>Exemple 2 — Vérification des contraintes de validation</h3>
+  <pre><code>public function testOrderTypeChoiceValuesAreCorrect(): void
+{
+    $reflection = new \ReflectionClass('App\Entity\Order');
+    $property = $reflection->getProperty('type');
+    $attributes = $property->getAttributes(
+        'Symfony\Component\Validator\Constraints\Choice'
+    );
+
+    $this->assertNotEmpty($attributes);
+    $args = $attributes[0]->getArguments();
+    $this->assertContains('BUY', $args['choices']);
+    $this->assertContains('SELL', $args['choices']);
+}</code></pre>
+
+  <h3>Exemple 3 — Vérification héritage Repository</h3>
+  <pre><code>public function testRepositoryExtendsServiceEntityRepository(string $repoClass): void
+{
+    $reflection = new \ReflectionClass($repoClass);
+    $this->assertTrue(
+        $reflection->isSubclassOf(
+            'Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository'
+        )
+    );
+}</code></pre>
+
+  <!-- Screenshots tests statiques -->
+  <h3>Captures — Tests statiques en échec (avant correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/nop/stat1.png" alt="Test statique en échec 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 1<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/nop/stat3.png" alt="Test statique en échec 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+  <h3>Captures — Tests statiques réussis (après correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/yes/stat1.png" alt="Test statique réussi 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 1<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/yes/stat3.png" alt="Test statique réussi 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ╔══════════════════════════════════════════════════════════════════════════════════════╗ -->
+  <!-- ║                        PARTIE 3 — TESTS DOCTRINE                                   ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════════════════════════════╝ -->
+  <div class="page-break"></div>
+  <h2 class="section-title">Partie 3 — Tests Doctrine (Mapping & Relations)</h2>
+
+  <p>Les tests Doctrine vérifient que les <strong>annotations ORM</strong> sont correctement configurées : colonnes,
+    types de données, relations bidirectionnelles, cascades, orphan removal, et contraintes JoinColumn.</p>
+
+  <div class="summary-box">
+    <div class="row"><span class="label">Fichiers de test :</span><span class="value">3 fichiers</span></div>
+    <div class="row"><span class="label">Tests :</span><span class="value">~265</span></div>
+    <div class="row"><span class="label">Assertions :</span><span class="value">~510</span></div>
+    <div class="row"><span class="label">Résultat :</span><span class="value"><span class="badge badge-pass">✅
+          OK</span></span></div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Fichier de test</th>
+      <th>Nb tests</th>
+      <th>Ce qui est vérifié</th>
+    </tr>
+    <tr>
+      <td>tests/Doctrine/EntityMappingTest.php</td>
+      <td>~55</td>
+      <td>#[ORM\Entity], #[ORM\Id], #[ORM\Column], #[ORM\Table], toutes les relations</td>
+    </tr>
+    <tr>
+      <td>tests/Doctrine/RelationshipIntegrityTest.php</td>
+      <td>~35</td>
+      <td>Bidirectionnalité mappedBy/inversedBy, cascades, orphanRemoval, JoinColumn nullable/onDelete</td>
+    </tr>
+    <tr>
+      <td>tests/Doctrine/EntitySchemaDefinitionTest.php</td>
+      <td>~175</td>
+      <td>Longueurs colonnes, types (decimal, datetime), précision/scale, type hints PHP, ?int pour IDs</td>
+    </tr>
+  </table>
+
+  <!-- Exemples de code -->
+  <h3>Exemple 1 — Vérification du mapping #[ORM\Entity] + #[ORM\Id]</h3>
+  <pre><code>public function testEntityIdHasOrmIdAttribute(string $className): void
+{
+    $reflection = new \ReflectionClass($className);
+    $prop = $reflection->getProperty('id');
+
+    $this->assertNotEmpty(
+        $prop->getAttributes('Doctrine\ORM\Mapping\Id'),
+        sprintf('%s::$id must have #[ORM\Id].', $className)
+    );
+    $this->assertNotEmpty(
+        $prop->getAttributes('Doctrine\ORM\Mapping\GeneratedValue')
+    );
+    $this->assertNotEmpty(
+        $prop->getAttributes('Doctrine\ORM\Mapping\Column')
+    );
+}</code></pre>
+
+  <h3>Exemple 2 — Vérification des relations bidirectionnelles</h3>
+  <pre><code>public function testUserWalletBidirectional_UserSide(): void
+{
+    $prop = $this->getProperty('App\Entity\User', 'wallet');
+    $attrs = $prop->getAttributes('Doctrine\ORM\Mapping\OneToOne');
+    $this->assertNotEmpty($attrs);
+
+    $args = $attrs[0]->getArguments();
+    $this->assertSame('user', $args['mappedBy'] ?? null,
+        'User::$wallet must have mappedBy=user');
+}
+
+public function testUserWalletBidirectional_WalletSide(): void
+{
+    $prop = $this->getProperty('App\Entity\Wallet', 'user');
+    $attrs = $prop->getAttributes('Doctrine\ORM\Mapping\OneToOne');
+
+    $args = $attrs[0]->getArguments();
+    $this->assertSame('wallet', $args['inversedBy'] ?? null,
+        'Wallet::$user must have inversedBy=wallet');
+}</code></pre>
+
+  <h3>Exemple 3 — Vérification cascade & orphanRemoval</h3>
+  <pre><code>public function testPortfolioAssetsCascade(): void
+{
+    $prop = $this->getProperty('App\Entity\Portfolio', 'portfolioAssets');
+    $attrs = $prop->getAttributes('Doctrine\ORM\Mapping\OneToMany');
+    $args = $attrs[0]->getArguments();
+
+    $this->assertContains('persist', $args['cascade']);
+    $this->assertContains('remove', $args['cascade']);
+}
+
+public function testWalletGoalsOrphanRemoval(): void
+{
+    $prop = $this->getProperty('App\Entity\Wallet', 'walletGoals');
+    $attrs = $prop->getAttributes('Doctrine\ORM\Mapping\OneToMany');
+    $args = $attrs[0]->getArguments();
+
+    $this->assertTrue($args['orphanRemoval'] ?? false);
+}</code></pre>
+
+  <h3>Exemple 4 — Vérification types de colonnes (decimal)</h3>
+  <pre><code>public function testWalletBalanceIsDecimalType(): void
+{
+    $prop = $this->getProperty('App\Entity\Wallet', 'balance');
+    $attrs = $prop->getAttributes('Doctrine\ORM\Mapping\Column');
+    $args = $attrs[0]->getArguments();
+
+    $this->assertSame('decimal', $args['type']);
+    $this->assertSame(15, $args['precision']);
+    $this->assertSame(2, $args['scale']);
+}</code></pre>
+
+  <!-- Screenshots tests Doctrine -->
+  <h3>Captures — Tests Doctrine en échec (avant correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/nop/doc1.png" alt="Test Doctrine en échec 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 1<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/nop/doc2.png" alt="Test Doctrine en échec 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Échec 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+  <h3>Captures — Tests Doctrine réussis (après correction)</h3>
+  <div class="screenshots-grid">
+    <div class="screenshot">
+      <img src="img/yes/doc1.png" alt="Test Doctrine réussi 1">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 1<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+    <div class="screenshot">
+      <img src="img/yes/doc2.png" alt="Test Doctrine réussi 2">
+      <div class="placeholder-text">
+        <div class="icon">📸</div>Succès 2<br><em>Remplacer src="" par le chemin de l'image</em>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ╔══════════════════════════════════════════════════════════════════════════════════════╗ -->
+  <!-- ║                              RÉSUMÉ GLOBAL                                         ║ -->
+  <!-- ╚══════════════════════════════════════════════════════════════════════════════════════╝ -->
+  <div class="page-break"></div>
+  <h2 class="section-title">Résumé Global</h2>
+
+  <table>
+    <tr>
+      <th>Catégorie</th>
+      <th>Fichiers</th>
+      <th>Tests</th>
+      <th>Assertions</th>
+      <th>Statut</th>
+    </tr>
+    <tr>
+      <td>Tests Unitaires</td>
+      <td>17</td>
+      <td>211</td>
+      <td>386</td>
+      <td><span class="badge badge-pass">✅ PASS</span></td>
+    </tr>
+    <tr>
+      <td>Tests Statiques</td>
+      <td>4</td>
+      <td>~330</td>
+      <td>~650</td>
+      <td><span class="badge badge-pass">✅ PASS</span></td>
+    </tr>
+    <tr>
+      <td>Tests Doctrine</td>
+      <td>3</td>
+      <td>~265</td>
+      <td>~510</td>
+      <td><span class="badge badge-pass">✅ PASS</span></td>
+    </tr>
+    <tr style="font-weight:700; background:#ede9fe;">
+      <td>TOTAL</td>
+      <td>24</td>
+      <td>~806</td>
+      <td>~1546</td>
+      <td><span class="badge badge-pass">✅ PASS</span></td>
+    </tr>
+  </table>
+
+  <h3>Commandes d'exécution</h3>
+  <pre><code># Tests unitaires
+php bin/phpunit tests/Entity tests/Service --testdox
+
+# Tests statiques
+php bin/phpunit tests/Static --testdox
+
+# Tests Doctrine
+php bin/phpunit tests/Doctrine --testdox
+
+# Tous les tests
+php bin/phpunit --testdox</code></pre>
+
+  <h3>Conclusion</h3>
+  <p>
+    L'ensemble des tests couvre les trois niveaux de vérification du projet Nexora :
+  </p>
+  <ul>
+    <li><strong>Tests Unitaires</strong> : logique métier (calculs, conversions, cycles de vie)</li>
+    <li><strong>Tests Statiques</strong> : intégrité structurelle du code (classes, méthodes, contraintes Symfony)</li>
+    <li><strong>Tests Doctrine</strong> : cohérence du mapping ORM (relations, cascades, types de colonnes)</li>
+  </ul>
+  <p>Tous les tests passent avec succès, garantissant la fiabilité et la maintenabilité de l'application.</p>
+
+</body>
+
+</html>

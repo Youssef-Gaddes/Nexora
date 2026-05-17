@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Portfolio Report - Nexora</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6366f1; padding-bottom: 10px; }
+        .logo { font-size: 24px; font-weight: bold; color: #6366f1; }
+        .report-title { font-size: 18px; color: #666; margin-top: 5px; }
+        
+        .summary-box { background: #f8fafc; border-radius: 10px; padding: 20px; margin-bottom: 30px; border: 1px solid #e2e8f0; }
+        .summary-item { display: inline-block; width: 30%; text-align: center; }
+        .summary-label { font-size: 12px; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
+        .summary-value { font-size: 20px; font-weight: bold; color: #1e293b; }
+        
+        .section-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; border-left: 4px solid #6366f1; padding-left: 10px; color: #1e293b; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        th { background: #f1f5f9; text-align: left; padding: 12px; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+        td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+        
+        .profit { color: #10b981; font-weight: bold; }
+        .loss { color: #ef4444; font-weight: bold; }
+        
+        .ai-box { background: #f5f3ff; border-radius: 10px; padding: 20px; border: 1px solid #ddd6fe; margin-top: 20px; }
+        .ai-header { display: flex; align-items: center; margin-bottom: 10px; font-weight: bold; color: #7c3aed; }
+        .ai-sentiment { display: inline-block; padding: 3px 10px; border-radius: 5px; font-size: 11px; margin-left: 10px; text-transform: uppercase; }
+        
+        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">NEXORA MARKET</div>
+        <div class="report-title">Monthly Portfolio Performance Report</div>
+        <div style="font-size: 12px; color: #94a3b8;">Generated on {{ "now"|date("F d, Y - H:i") }}</div>
+    </div>
+
+    <div class="section-title">Executive Summary</div>
+    <div class="summary-box">
+        <div class="summary-item">
+            <div class="summary-label">Total Market Value</div>
+            <div class="summary-value">{{ totalValue|number_format(2) }} DT</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Total Net Profit</div>
+            <div class="summary-value {{ totalProfit >= 0 ? 'profit' : 'loss' }}">{{ totalProfit|number_format(2) }} DT</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Active Assets</div>
+            <div class="summary-value">{{ assets|length }}</div>
+        </div>
+    </div>
+
+    <div class="section-title">Holdings Detail</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Asset</th>
+                <th>Quantity</th>
+                <th>Market Price</th>
+                <th>Market Value</th>
+                <th>P/L (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assets %}
+            <tr>
+                <td style="font-weight: bold;">{{ a.name }} ({{ a.symbol }})</td>
+                <td>{{ a.quantity|number_format(4) }}</td>
+                <td>{{ a.price|number_format(2) }} DT</td>
+                <td>{{ a.marketValue|number_format(2) }} DT</td>
+                <td class="{{ a.profitLoss >= 0 ? 'profit' : 'loss' }}">
+                    {{ a.profitLoss >= 0 ? '+' : '' }}{{ a.profitPct|number_format(2) }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if ai %}
+    <div class="section-title">Nexora AI Analysis</div>
+    <div class="ai-box">
+        <div class="ai-header">
+            INTELLIGENT ADVISOR 
+            <span class="ai-sentiment" style="background: {{ ai.sentiment == 'BULLISH' ? '#dcfce7' : (ai.sentiment == 'BEARISH' ? '#fee2e2' : '#f3e8ff') }}; color: {{ ai.sentiment == 'BULLISH' ? '#166534' : (ai.sentiment == 'BEARISH' ? '#991b1b' : '#6b21a8') }};">
+                {{ ai.sentiment }}
+            </span>
+        </div>
+        <div style="font-size: 13px; color: #4b5563; font-style: italic;">
+            "{{ ai.advice }}"
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #6b7280;">
+            Risk Assessment: <strong>{{ ai.risk_level }}</strong>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        &copy; {{ "now"|date("Y") }} Nexora Retail Solutions. This report is for informational purposes only. Data sourced from CoinGecko & Frankfurter.
+    </div>
+</body>
+</html>
